@@ -4,7 +4,7 @@
 ![:name](https://count.getloli.com/@astrbot_plugin_search_video?name=astrbot_plugin_search_video&theme=minecraft&padding=6&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)
 
 
-# nonebot_plugin_search_video
+# astrbot_plugin_search_video
 
 _✨ [astrbot](https://github.com/AstrBotDevs/AstrBot) 搜视频插件 ✨_  
 

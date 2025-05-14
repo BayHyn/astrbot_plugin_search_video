@@ -8,11 +8,11 @@ from astrbot import logger
 from .api import VideoAPI
 
 @register(
-    "nonebot_plugin_search_video",
+    "astrbot_plugin_search_video",
     "Zhalslar",
     "视频搜索",
     "1.0.0",
-    "https://github.com/Zhalslar/nonebot_plugin_search_video",
+    "https://github.com/Zhalslar/astrbot_plugin_search_video",
 )
 class VideoPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
