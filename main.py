@@ -1,28 +1,38 @@
 import os
+from pathlib import Path
+
+from bs4 import BeautifulSoup
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.core.config.astrbot_config import AstrBotConfig
-from astrbot.core.message.components import  Video
+from astrbot.core.message.components import  Image, Video
 from astrbot.core.utils.session_waiter import SessionController, session_waiter
 from astrbot import logger
+from .draw import VideoCardRenderer
 from .api import VideoAPI
 
 @register(
     "astrbot_plugin_search_video",
     "Zhalslar",
     "视频搜索",
-    "1.0.0",
+    "1.0.1",
     "https://github.com/Zhalslar/astrbot_plugin_search_video",
 )
 class VideoPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
+
         # 哔哩哔哩限制的最大视频时长（默认8分钟），单位：秒
         self.max_duration: int = config.get("max_duration", 600)
         # B站cookie
         self.cookie: str = config.get("cookie", "")
         # 实例化api
         self.api = VideoAPI(self.cookie)
+        # 画图类
+        self.renderer = VideoCardRenderer(
+            font_path=Path(__file__).resolve().parent / "simhei.ttf"
+        )
+
 
     @filter.command("搜视频")
     async def search_video_handle(self, event: AstrMessageEvent):
@@ -38,11 +48,12 @@ class VideoPlugin(Star):
             return
 
         # 展示搜索结果
-        video_infos = self.api.display_video_info(video_list)
-        image = await self.text_to_image(video_infos)
-        yield event.image_result(image)
+        image: bytes = await self.renderer.render_video_list_image(
+            video_list, cards_per_row=3,
+        )
+        yield event.chain_result([Image.fromBytes(image)])
 
-        # 等待用户选择歌曲
+        # 等待用户选择视频
         @session_waiter(timeout=60, record_history_chains=False) # type: ignore
         async def empty_mention_waiter(
             controller: SessionController, event: AstrMessageEvent
@@ -55,22 +66,24 @@ class VideoPlugin(Star):
                 or int(choice_index) > len(video_list)
             ):
                 return
-            await event.send(event.plain_result(f"正在下载视频【{choice_index}】..."))
-            logger.info(f"正在下载视频: {video_list[int(choice_index) - 1].get('title')}")
             controller.stop()
 
             # 获取视频信息
-            video_dict = video_list[int(choice_index) - 1]
-            bvid: str = video_dict.get("bvid", "")
-            duration_str: str = video_dict.get("duration", "0")
+            video = video_list[int(choice_index) - 1]
+            video_id: str = video.get("bvid", "")
+            raw_title = video["title"]
+            title = BeautifulSoup(raw_title, "html.parser").get_text()[0:5]
+            duration_str: str = video.get("duration", "0")
 
             # 视频时长是否超过最大时长时发链接，否则发送视频
             duration = self.convert_duration_to_seconds(duration_str)
             if duration > self.max_duration:
-                video_url = f"https://www.bilibili.com/video/{bvid}"
-                await event.send(event.plain_result(f"视频有点长：{video_url}"))
+                video_url = f"https://www.bilibili.com/video/{video_id}"
+                await event.send(event.plain_result(f"视频超过{self.max_duration/60}分钟改用链接：{video_url}"))
             else:
-                data_path = await self.api.download_video(bvid)
+                await event.send(event.plain_result(f"正在下载 {title}..."))
+                logger.info(f"正在下载视频:{raw_title}")
+                data_path = await self.api.download_video(video_id)
                 if data_path:
                     await self.send_video(event, data_path)
 
@@ -134,29 +147,3 @@ class VideoPlugin(Star):
             elif i == 2:
                 seconds += int(part) * 3600
         return seconds
-
-    def _remove_files(self, file_paths: list[str]) -> dict[str, str]:
-        """
-        根据路径删除文件
-
-        Parameters:
-        *file_paths (str): 要删除的一个或多个文件路径
-
-        Returns:
-        dict: 一个以文件路径为键、删除状态为值的字典
-        """
-        results = {}
-
-        for file_path in file_paths:
-            if os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                    results[file_path] = "remove"
-                except Exception as e:
-                    results[file_path] = f"error: {e}"
-            else:
-                results[file_path] = "don't exist"
-
-        return results
-
-

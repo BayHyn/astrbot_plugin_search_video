@@ -2,10 +2,12 @@
     "max_duration": {
         "description": "哔哩哔哩限制的最大视频时长（秒）",
         "type": "int",
+        "hint": "单位为秒，超过此时长的视频只发链接不下载视频",
         "default": 600
     },
     "cookie": {
         "description": "B站cookie",
-        "type": "text"
+        "type": "text",
+        "hint": "可以填也可以不填，理论上不影响，如果下载视频经常失败，可以填一下。"
     }
 }

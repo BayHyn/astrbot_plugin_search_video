@@ -1,5 +1,5 @@
 import os
-import time
+import sys
 from typing import Callable, List, Dict
 import aiofiles
 import httpx
@@ -8,41 +8,24 @@ import platform
 import subprocess
 from bilibili_api import video, Credential
 from bilibili_api.video import VideoDownloadURLDataDetecter
-from bs4 import BeautifulSoup
 from astrbot import logger
 
 class VideoAPI():
     """
     视频API类
     """
-    # 构造函数
     def __init__(self, cookie: str):
-        self.cookie = cookie
-
         self.BILIBILI_SEARCH_API = "https://api.bilibili.com/x/web-interface/search/type"
 
-        self.BILIBILI_HEADER2 = {
+        self.BILIBILI_HEADER = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36",
             "Referer": "https://www.bilibili.com",
             "Origin": "https://www.bilibili.com",
             "Accept": "application/json, text/plain, */*",
-            "Cookie": self.cookie,
+            "Cookie": cookie,
         }
 
-
-        self.BILIBILI_HEADER = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 "
-            "Safari/537.36",
-            "referer": "https://www.bilibili.com",
-        }
-
-
-        self.COMMON_HEADER = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 "
-            "UBrowser/6.2.4098.3 Safari/537.36"
-        }
-
-    async def search_video(self, keyword: str) -> list[dict] | None:
+    async def search_video(self, keyword: str, count: int = 18) -> list[dict] | None:
         """
         搜索视频
         """
@@ -50,49 +33,19 @@ class VideoAPI():
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.get(
-                    self.BILIBILI_SEARCH_API, params=params, headers=self.BILIBILI_HEADER2
+                    self.BILIBILI_SEARCH_API, params=params, headers=self.BILIBILI_HEADER
                 )
                 response.raise_for_status()
                 data = response.json()
 
                 if data["code"] == 0:
                     video_list = data["data"].get("result", [])
-                    return video_list
+                    logger.debug(video_list)
+                    return video_list[:count]
 
             except Exception as e:
                 logger.error(f"发生错误: {e}")
                 return []
-
-    def display_video_info(self, video_list: list[dict]) -> str:
-        """
-        展示视频信息
-        """
-        video_infos = []
-        for index, video_ in enumerate(video_list):
-            title = BeautifulSoup(video_.get("title", "无标题"), "html.parser").get_text()
-            author = video_.get("author", "未知作者")
-            duration = video_.get("duration", "未知时长")
-            play_count = video_.get("play", "未知播放量")
-            favorites = video_.get("favorites", "未知收藏量")
-            likes = video_.get("like", "未知点赞数")
-            description = BeautifulSoup(
-                video_.get("description", "无简介"), "html.parser"
-            ).get_text()
-            tags = video_.get("tag", "无标签")
-            pubdate = time.strftime("%Y-%m-%d", time.localtime(video_.get("pubdate", 0)))
-
-            # 使用 Markdown 格式生成单个视频的信息
-            info_str = (
-                f"### {index + 1}. {title}\n"
-                f"- **作者**: {author} | **日期**: {pubdate}\n"
-                f"- **时长**: {duration} | **播放量**: {play_count} | **点赞数**: {likes} | **收藏量**: {favorites}\n"
-                f"- **简介**: {description}\n"
-                f"- **标签**: {tags}\n"
-            )
-            video_infos.append(info_str)
-
-        # 将所有视频信息拼接为一个 Markdown 格式的字符串
-        return "\n\n".join(video_infos)
 
     async def download_video(self, video_id: str) -> str | None:
         """下载视频"""
@@ -125,23 +78,35 @@ class VideoAPI():
             )
             logger.info(remove_res)
 
-    async def _download_b_file(self, url: str, full_file_name: str, progress_callback: Callable[[str], None]):
-        """
-        下载视频文件和音频文件
-        :param url:
-        :param full_file_name:
-        :param progress_callback:
-        :return:
-        """
+    async def _download_b_file(
+        self, url: str, full_file_name: str, progress_callback: Callable[[str], None]
+    ):
         async with httpx.AsyncClient() as client:
             async with client.stream("GET", url, headers=self.BILIBILI_HEADER) as resp:
                 current_len = 0
                 total_len = int(resp.headers.get("content-length", 0))
+                last_percent = -1
+
                 async with aiofiles.open(full_file_name, "wb") as f:
                     async for chunk in resp.aiter_bytes():
                         current_len += len(chunk)
                         await f.write(chunk)
-                        progress_callback(f"下载进度：{round(current_len / total_len, 3)}")
+
+                        percent = int(current_len / total_len * 100)
+                        if percent != last_percent:
+                            last_percent = percent
+                            self._print_progress_bar(percent, full_file_name)
+                # 下载完成后换行
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+
+
+    def _print_progress_bar(self, percent: int, label: str = ""):
+        bar_length = 50
+        filled_length = int(bar_length * percent // 100)
+        bar = "█" * filled_length + "-" * (bar_length - filled_length)
+        sys.stdout.write(f"\r{label} [{bar}] {percent}%")
+        sys.stdout.flush()
 
 
     async def _merge_file_to_mp4(
