@@ -39,9 +39,14 @@ git clone https://github.com/Zhalslar/astrbot_plugin_search_video
 
 ## 使用说明
 
+指令表
 |     命令      |      说明       |
 |:-------------:|:-----------------------------:|
 | /搜视频 关键词     | 根据关键词搜索视频，然后发送序号进行选择  |
+
+示例图
+![download](https://github.com/user-attachments/assets/8d2fe20d-bf74-4411-b96c-0ab8da2a5910)
+
 
 ## 👥 贡献指南
 
