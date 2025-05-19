@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Callable, List, Dict
+from typing import List, Dict
 import aiofiles
 import httpx
 import asyncio
@@ -47,8 +47,10 @@ class VideoAPI():
                 logger.error(f"发生错误: {e}")
                 return []
 
-    async def download_video(self, video_id: str) -> str | None:
+    async def download_video(self, video_id: str, temp_dir: str) -> str | None:
         """下载视频"""
+        # 确保临时目录存在
+        os.makedirs(temp_dir, exist_ok=True)
 
         # 获取视频信息
         v = video.Video(video_id, credential=Credential(sessdata=""))
@@ -59,27 +61,36 @@ class VideoAPI():
         video_url, audio_url = streams[0].url, streams[1].url
 
         # 下载视频和音频并合并
-        path = os.getcwd() + "/" + video_id
+        video_file = os.path.join(temp_dir, f"{video_id}-video.m4s")
+        audio_file = os.path.join(temp_dir, f"{video_id}-audio.m4s")
+        output_file = os.path.join(temp_dir, f"{video_id}-res.mp4")
+
         try:
             await asyncio.gather(
-                self._download_b_file(video_url, f"{path}-video.m4s", logger.info),
-                self._download_b_file(audio_url, f"{path}-audio.m4s", logger.info),
+                self._download_b_file(video_url, video_file),
+                self._download_b_file(audio_url, audio_file),
             )
-            await self._merge_file_to_mp4(
-                f"{video_id}-video.m4s", f"{video_id}-audio.m4s", f"{path}-res.mp4"
-            )
-            return f"{path}-res.mp4"
+            # 检查临时文件是否存在
+            if not os.path.exists(video_file) or not os.path.exists(audio_file):
+                logger.error(f"临时文件下载失败：{video_file} 或 {audio_file} 不存在")
+                return None
+
+            await self._merge_file_to_mp4(video_file, audio_file, output_file)
+            # 检查输出文件是否存在
+            if not os.path.exists(output_file):
+                logger.error(f"合并失败，输出文件不存在：{output_file}")
+                return None
+
+            return output_file
         except Exception as e:
             logger.error(f"视频/音频下载失败，具体为\n{e}")
-            return
+            return None
         finally:
-            remove_res = self._remove_files(
-                [f"{video_id}-video.m4s", f"{video_id}-audio.m4s"]
-            )
+            remove_res = self._remove_files([video_file, audio_file])
             logger.info(remove_res)
 
     async def _download_b_file(
-        self, url: str, full_file_name: str, progress_callback: Callable[[str], None]
+        self, url: str, full_file_name: str
     ):
         async with httpx.AsyncClient() as client:
             async with client.stream("GET", url, headers=self.BILIBILI_HEADER) as resp:
@@ -105,7 +116,13 @@ class VideoAPI():
         bar_length = 50
         filled_length = int(bar_length * percent // 100)
         bar = "█" * filled_length + "-" * (bar_length - filled_length)
-        sys.stdout.write(f"\r{label} [{bar}] {percent}%")
+
+        # 提取文件名并限制长度，避免刷屏
+        file_name = os.path.basename(label)
+        if len(file_name) > 30:
+            file_name = "..." + file_name[-27:]
+
+        sys.stdout.write(f"\r{file_name:<30} [{bar}] {percent:3d}%")
         sys.stdout.flush()
 
 
@@ -124,7 +141,7 @@ class VideoAPI():
         :param log_output: 是否显示 ffmpeg 输出日志，默认忽略
         :return:
         """
-        print(f"正在合并：{output_file_name}")
+        logger.info(f"正在合并：{output_file_name}")
 
         # 构建 ffmpeg 命令
         command = f'ffmpeg -y -i "{v_full_file_name}" -i "{a_full_file_name}" -c copy "{output_file_name}"'

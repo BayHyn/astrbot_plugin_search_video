@@ -11,17 +11,22 @@ from astrbot import logger
 from .draw import VideoCardRenderer
 from .api import VideoAPI
 
+# 视频缓存路径
+TEMP_DIR = os.path.abspath(
+    os.path.join("data", "plugins_data", "astrbot_plugin_search_video")
+)
+os.makedirs(TEMP_DIR, exist_ok=True)
+
 @register(
     "astrbot_plugin_search_video",
     "Zhalslar",
     "视频搜索",
-    "1.0.1",
+    "1.0.2",
     "https://github.com/Zhalslar/astrbot_plugin_search_video",
 )
 class VideoPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
-
         # 哔哩哔哩限制的最大视频时长（默认8分钟），单位：秒
         self.max_duration: int = config.get("max_duration", 600)
         # B站cookie
@@ -32,6 +37,7 @@ class VideoPlugin(Star):
         self.renderer = VideoCardRenderer(
             font_path=Path(__file__).resolve().parent / "simhei.ttf"
         )
+        self.is_save: bool = config.get("is_save", True)
 
 
     @filter.command("搜视频")
@@ -72,7 +78,7 @@ class VideoPlugin(Star):
             video = video_list[int(choice_index) - 1]
             video_id: str = video.get("bvid", "")
             raw_title = video["title"]
-            title = BeautifulSoup(raw_title, "html.parser").get_text()[0:5]
+            title = BeautifulSoup(raw_title, "html.parser").get_text()[0:9]
             duration_str: str = video.get("duration", "0")
 
             # 视频时长是否超过最大时长时发链接，否则发送视频
@@ -83,7 +89,7 @@ class VideoPlugin(Star):
             else:
                 await event.send(event.plain_result(f"正在下载 {title}..."))
                 logger.info(f"正在下载视频:{raw_title}")
-                data_path = await self.api.download_video(video_id)
+                data_path = await self.api.download_video(video_id, TEMP_DIR)
                 if data_path:
                     await self.send_video(event, data_path)
 
@@ -128,8 +134,7 @@ class VideoPlugin(Star):
         except Exception as e:
             logger.error(f"解析发送出现错误，具体为\n{e}")
         finally:
-            # 删除临时文件
-            if os.path.exists(data_path):
+            if self.is_save and os.path.exists(data_path):
                 os.unlink(data_path)
 
     @staticmethod

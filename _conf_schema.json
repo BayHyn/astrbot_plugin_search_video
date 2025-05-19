@@ -9,5 +9,10 @@
         "description": "B站cookie",
         "type": "text",
         "hint": "可以填也可以不填，理论上不影响，如果下载视频经常失败，可以填一下。"
+    },
+    "is_save": {
+        "description": "是否保存视频",
+        "type": "bool",
+        "hint": "保存路径为data/plugins_data/astrbot_plugin_search_video"
     }
 }
