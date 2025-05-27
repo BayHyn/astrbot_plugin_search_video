@@ -20,10 +20,10 @@ _✨ [astrbot](https://github.com/AstrBotDevs/AstrBot) 搜视频插件 ✨_
 视频搜索，让你和群友一起刷视频（目前仅支持B站、QQ平台，后续兼容更多）
 
 ## 📦 安装
+-
+- 安装ffmpeg：本插件依赖于ffmpeg合并视频和音频，一般安装napcat时会自动帮你安装好，其他协议端请自行安装
 
-- 直接在astrbot的插件市场搜索astrbot_plugin_search_video，点击安装，等待完成即可
-
-- 也可以克隆源码到插件文件夹：
+- 安装本插件：直接在astrbot的插件市场搜索astrbot_plugin_search_video，点击安装，等待完成即可。如果安装失败还可以直接克隆源码到插件文件夹：
 
 ```bash
 # 克隆仓库到插件目录
@@ -58,3 +58,4 @@ git clone https://github.com/Zhalslar/astrbot_plugin_search_video
 ## 📌 注意事项
 
 - 想第一时间得到反馈的可以来作者的插件反馈群（QQ群）：460973561（不点star不给进）
+- 本插件依赖ffmpeg，出现合并视频音频失败的报错时，说明ffmpeg没正确安装。
