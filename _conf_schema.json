@@ -14,5 +14,17 @@
         "description": "是否保存视频",
         "type": "bool",
         "hint": "保存路径为data/plugins_data/astrbot_plugin_search_video"
+    },
+    "cards_per_row": {
+        "description": "候选菜单的列数",
+        "type": "int",
+        "hint": "每页候选菜单共20个视频， 此配置可设定以多少列显示",
+        "default": 4
+    },
+    "timeout": {
+        "description": "超时时间（秒）",
+        "type": "int",
+        "hint": "等待用户选视频的超时时间，超时自动退出",
+        "default": 60
     }
 }

@@ -25,11 +25,11 @@ class VideoAPI():
             "Cookie": cookie,
         }
 
-    async def search_video(self, keyword: str, count: int = 18) -> list[dict] | None:
+    async def search_video(self, keyword: str,  page: int = 1) -> list[dict] | None:
         """
         搜索视频
         """
-        params = {"search_type": "video", "keyword": keyword, "page": 1}
+        params = {"search_type": "video", "keyword": keyword, "page": page}
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.get(
@@ -41,7 +41,7 @@ class VideoAPI():
                 if data["code"] == 0:
                     video_list = data["data"].get("result", [])
                     logger.debug(video_list)
-                    return video_list[:count]
+                    return video_list
 
             except Exception as e:
                 logger.error(f"发生错误: {e}")

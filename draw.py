@@ -8,11 +8,14 @@ from bs4 import BeautifulSoup
 import hashlib
 from astrbot import logger
 
+font_path = (
+    Path(__file__).resolve().parent / "hei.TTF"
+)
 
 class VideoCardRenderer:
     def __init__(
         self,
-        font_path: Path,
+        font_path: Path = font_path,
         cache_dir: Path = Path("image_cache"),
         card_width: int = 300,
         card_height: int = 250,

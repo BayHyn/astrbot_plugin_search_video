@@ -1,6 +1,4 @@
 import os
-from pathlib import Path
-
 from bs4 import BeautifulSoup
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
@@ -21,7 +19,7 @@ os.makedirs(TEMP_DIR, exist_ok=True)
     "astrbot_plugin_search_video",
     "Zhalslar",
     "视频搜索",
-    "1.0.2",
+    "1.0.3",
     "https://github.com/Zhalslar/astrbot_plugin_search_video",
 )
 class VideoPlugin(Star):
@@ -34,10 +32,12 @@ class VideoPlugin(Star):
         # 实例化api
         self.api = VideoAPI(self.cookie)
         # 画图类
-        self.renderer = VideoCardRenderer(
-            font_path=Path(__file__).resolve().parent / "simhei.ttf"
-        )
+        self.renderer = VideoCardRenderer()
         self.is_save: bool = config.get("is_save", True)
+        # 候选菜单的列数
+        self.cards_per_row: int = config.get("cards_per_row", 18)
+        # 超时时间
+        self.timeout: int = config.get("timeout", 60)
 
 
     @filter.command("搜视频")
@@ -48,34 +48,57 @@ class VideoPlugin(Star):
         video_name = event.message_str.replace("搜视频", "")
 
         # 获取搜索结果
-        video_list = await self.api.search_video(video_name)
+        video_list = await self.api.search_video(
+            keyword=video_name, page=1
+        )
         if not video_list:
             yield event.plain_result("没有找到相关视频")
             return
 
         # 展示搜索结果
         image: bytes = await self.renderer.render_video_list_image(
-            video_list, cards_per_row=3,
+            video_list, cards_per_row=self.cards_per_row,
         )
-        yield event.chain_result([Image.fromBytes(image)])
+        await event.send(event.chain_result([Image.fromBytes(image)]))
 
         # 等待用户选择视频
-        @session_waiter(timeout=60, record_history_chains=False) # type: ignore
+        @session_waiter(timeout=self.timeout) # type: ignore
         async def empty_mention_waiter(
             controller: SessionController, event: AstrMessageEvent
         ):
-            # 获取用户输入的索引
-            choice_index = event.message_str
-            if (
-                not choice_index.isdigit()
-                or int(choice_index) < 1
-                or int(choice_index) > len(video_list)
+            input = event.message_str
+            video_list_copy = video_list.copy()
+
+            # 翻页机制
+            if input.startswith("页") and input[-1].isdigit():
+                # 重置超时时间
+                controller.keep(timeout=self.timeout, reset_timeout=True)
+                video_list_new = await self.api.search_video(
+                    keyword=video_name, page=int(input[-1])
+                )
+                if not video_list_new:
+                    await event.send(event.plain_result("没有找到更多相关视频"))
+                    return
+                video_list_copy = video_list_new.copy()
+                image: bytes = await self.renderer.render_video_list_image(
+                    video_list_copy,
+                    cards_per_row=self.cards_per_row,
+                )
+                await event.send(event.chain_result([Image.fromBytes(image)]))
+                return
+
+            # 验证输入序号
+            elif (
+                not input.isdigit()
+                or int(input) < 1
+                or int(input) > len(video_list_copy)
             ):
                 return
-            controller.stop()
 
+            # 先停止会话，防止下载视频时出现“再次输入”
+            controller.stop()
             # 获取视频信息
-            video = video_list[int(choice_index) - 1]
+            video = video_list_copy[int(input) - 1]
             video_id: str = video.get("bvid", "")
             raw_title = video["title"]
             title = BeautifulSoup(raw_title, "html.parser").get_text()[0:9]
