@@ -32,8 +32,6 @@ git clone https://github.com/Zhalslar/astrbot_plugin_search_video
 # 控制台重启AstrBot
 ```
 
-## ⌨️ 配置
-
 ## ⚙️ 配置
 
 ### 插件配置
