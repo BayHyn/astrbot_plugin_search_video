@@ -47,7 +47,7 @@ git clone https://github.com/Zhalslar/astrbot_plugin_search_video
 - 对 **AstrBot**：`/vol3/1000/dockerSharedFolder -> /app/sharedFolder`
 - 对 **NapCat**：`/vol3/1000/dockerSharedFolder -> /app/sharedFolder`
 
-## 使用说明
+## ⌨️ 使用说明
 
 指令表
 |     命令      |      说明       |
