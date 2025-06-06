@@ -19,7 +19,7 @@ os.makedirs(TEMP_DIR, exist_ok=True)
     "astrbot_plugin_search_video",
     "Zhalslar",
     "视频搜索",
-    "1.0.3",
+    "1.0.4",
     "https://github.com/Zhalslar/astrbot_plugin_search_video",
 )
 class VideoPlugin(Star):
@@ -54,10 +54,11 @@ class VideoPlugin(Star):
         if not video_list:
             yield event.plain_result("没有找到相关视频")
             return
-
+        videos: list[list] = [video_list]
         # 展示搜索结果
         image: bytes = await self.renderer.render_video_list_image(
-            video_list, cards_per_row=self.cards_per_row,
+            videos[0],
+            cards_per_row=self.cards_per_row,
         )
         await event.send(event.chain_result([Image.fromBytes(image)]))
 
@@ -67,7 +68,6 @@ class VideoPlugin(Star):
             controller: SessionController, event: AstrMessageEvent
         ):
             input = event.message_str
-            video_list_copy = video_list.copy()
 
             # 翻页机制
             if input.startswith("页") and input[-1].isdigit():
@@ -79,26 +79,22 @@ class VideoPlugin(Star):
                 if not video_list_new:
                     await event.send(event.plain_result("没有找到更多相关视频"))
                     return
-                video_list_copy = video_list_new.copy()
+                videos.append(video_list_new)
                 image: bytes = await self.renderer.render_video_list_image(
-                    video_list_copy,
+                    video_list_new,
                     cards_per_row=self.cards_per_row,
                 )
                 await event.send(event.chain_result([Image.fromBytes(image)]))
                 return
 
             # 验证输入序号
-            elif (
-                not input.isdigit()
-                or int(input) < 1
-                or int(input) > len(video_list_copy)
-            ):
+            elif not input.isdigit() or int(input) < 1 or int(input) > len(videos[-1]):
                 return
 
             # 先停止会话，防止下载视频时出现“再次输入”
             controller.stop()
             # 获取视频信息
-            video = video_list_copy[int(input) - 1]
+            video = videos[-1][int(input) - 1]
             video_id: str = video.get("bvid", "")
             raw_title = video["title"]
             title = BeautifulSoup(raw_title, "html.parser").get_text()[0:9]
