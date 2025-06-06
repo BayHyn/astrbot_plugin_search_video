@@ -19,7 +19,7 @@
         "description": "候选菜单的列数",
         "type": "int",
         "hint": "每页候选菜单共20个视频， 此配置可设定以多少列显示",
-        "default": 4
+        "default": 3
     },
     "timeout": {
         "description": "超时时间（秒）",
