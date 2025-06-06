@@ -34,7 +34,20 @@ git clone https://github.com/Zhalslar/astrbot_plugin_search_video
 
 ## ⌨️ 配置
 
-请前往插件配置面板进行配置
+## ⚙️ 配置
+
+### 插件配置
+
+请在astrbot面板配置，插件管理 -> astrbot_plugin_search_video -> 操作 -> 插件配置
+
+### Docker 部署配置
+
+如果您是 Docker 部署，请务必将消息平台容器和AstrBot挂载容器到同一个文件夹，否则消息平台将无法解析文件路径。
+
+示例挂载方式(NapCat)：
+
+- 对 **AstrBot**：`/vol3/1000/dockerSharedFolder -> /app/sharedFolder`
+- 对 **NapCat**：`/vol3/1000/dockerSharedFolder -> /app/sharedFolder`
 
 ## 使用说明
 
