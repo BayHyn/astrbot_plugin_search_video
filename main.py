@@ -1,7 +1,7 @@
 import os
 from bs4 import BeautifulSoup
 from astrbot.api.event import filter, AstrMessageEvent
-from astrbot.api.star import Context, Star, register
+from astrbot.api.star import Context, Star, StarTools, register
 from astrbot.core.config.astrbot_config import AstrBotConfig
 from astrbot.core.message.components import  Image, Video
 from astrbot.core.utils.session_waiter import SessionController, session_waiter
@@ -9,17 +9,11 @@ from astrbot import logger
 from .draw import VideoCardRenderer
 from .api import VideoAPI
 
-# 视频缓存路径
-TEMP_DIR = os.path.abspath(
-    os.path.join("data", "plugins_data", "astrbot_plugin_search_video")
-)
-os.makedirs(TEMP_DIR, exist_ok=True)
-
 @register(
     "astrbot_plugin_search_video",
     "Zhalslar",
     "视频搜索",
-    "v1.0.5",
+    "v1.0.6",
     "https://github.com/Zhalslar/astrbot_plugin_search_video",
 )
 class VideoPlugin(Star):
@@ -33,11 +27,14 @@ class VideoPlugin(Star):
         self.api = VideoAPI(self.cookie)
         # 画图类
         self.renderer = VideoCardRenderer()
-        self.is_save: bool = config.get("is_save", True)
         # 候选菜单的列数
         self.cards_per_row: int = config.get("cards_per_row", 18)
         # 超时时间
         self.timeout: int = config.get("timeout", 60)
+        # 是否保存视频
+        self.is_save: bool = config.get("is_save", True)
+        # 视频缓存路径
+        self.plugin_data_dir = StarTools.get_data_dir("astrbot_plugin_search_video")
 
 
     @filter.command("搜视频")
@@ -108,7 +105,9 @@ class VideoPlugin(Star):
             else:
                 await event.send(event.plain_result(f"正在下载 {title}..."))
                 logger.info(f"正在下载视频:{raw_title}")
-                data_path = await self.api.download_video(video_id, TEMP_DIR)
+                data_path = await self.api.download_video(
+                    video_id, str(self.plugin_data_dir)
+                )
                 if data_path:
                     await self.send_video(event, data_path)
 
@@ -153,7 +152,7 @@ class VideoPlugin(Star):
         except Exception as e:
             logger.error(f"解析发送出现错误，具体为\n{e}")
         finally:
-            if self.is_save and os.path.exists(data_path):
+            if not self.is_save and os.path.exists(data_path):
                 os.unlink(data_path)
 
     @staticmethod

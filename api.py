@@ -1,6 +1,5 @@
 import os
 import sys
-from typing import List, Dict
 import aiofiles
 import httpx
 import asyncio
@@ -53,46 +52,45 @@ class VideoAPI():
         # 确保临时目录存在
         os.makedirs(temp_dir, exist_ok=True)
 
-        # 获取视频信息
-        v = video.Video(video_id, credential=Credential(sessdata=""))
         # 获取视频流和音频流下载链接
+        v = video.Video(video_id, credential=Credential(sessdata=""))
         download_url_data = await v.get_download_url(page_index=0)
         detector = VideoDownloadURLDataDetecter(download_url_data)
         streams = detector.detect_best_streams()
         video_url, audio_url = streams[0].url, streams[1].url
 
-        # 下载视频和音频并合并
+        # 构建文件路径
         video_file = os.path.join(temp_dir, f"{video_id}-video.m4s")
         audio_file = os.path.join(temp_dir, f"{video_id}-audio.m4s")
         output_file = os.path.join(temp_dir, f"{video_id}-res.mp4")
 
+        # 下载视频和音频
         try:
             await asyncio.gather(
                 self._download_b_file(video_url, video_file),
                 self._download_b_file(audio_url, audio_file),
             )
-            # 检查临时文件是否存在
-            if not os.path.exists(video_file) or not os.path.exists(audio_file):
-                logger.error(f"临时文件下载失败：{video_file} 或 {audio_file} 不存在")
-                return None
-
-            try:
-                await self._merge_file_to_mp4(video_file, audio_file, output_file)
-            except Exception as merge_err:
-                logger.warning(f"合并视频音频失败，回退为仅视频：{merge_err}")
-                shutil.copy(video_file, output_file)
-            # 检查输出文件是否存在
-            if not os.path.exists(output_file):
-                logger.error(f"合并失败，输出文件不存在：{output_file}")
-                return None
-
-            return output_file
         except Exception as e:
-            logger.error(f"视频/音频下载失败，具体为\n{e}")
+            logger.error(f"视频/音频下载失败: {e}")
             return None
-        finally:
-            remove_res = self._remove_files([video_file, audio_file])
-            logger.info(remove_res)
+
+        # 合并视频和音频
+        try:
+            await self._merge_file_to_mp4(video_file, audio_file, output_file)
+        except Exception as merge_err:
+            logger.warning(f"合并视频音频失败，回退为仅视频：{merge_err}")
+            shutil.copy(video_file, output_file)
+
+        # 删除临时文件
+        for f in [video_file, audio_file]:
+            if os.path.exists(f):
+                os.remove(f)
+
+        if not os.path.exists(output_file):
+            logger.error(f"输出文件不存在：{output_file}")
+            return None
+
+        return output_file
 
     async def _download_b_file(
         self, url: str, full_file_name: str
@@ -167,26 +165,4 @@ class VideoAPI():
             )
             await process.communicate()
 
-    def _remove_files(self, file_paths: List[str]) -> Dict[str, str]:
-        """
-        根据路径删除文件
 
-        Parameters:
-        *file_paths (str): 要删除的一个或多个文件路径
-
-        Returns:
-        dict: 一个以文件路径为键、删除状态为值的字典
-        """
-        results = {}
-
-        for file_path in file_paths:
-            if os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                    results[file_path] = "remove"
-                except Exception as e:
-                    results[file_path] = f"error: {e}"
-            else:
-                results[file_path] = "don't exist"
-
-        return results
