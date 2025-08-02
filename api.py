@@ -9,6 +9,7 @@ import subprocess
 from bilibili_api import video, Credential
 from bilibili_api.video import VideoDownloadURLDataDetecter
 from astrbot import logger
+import shutil
 
 class VideoAPI():
     """
@@ -75,7 +76,11 @@ class VideoAPI():
                 logger.error(f"临时文件下载失败：{video_file} 或 {audio_file} 不存在")
                 return None
 
-            await self._merge_file_to_mp4(video_file, audio_file, output_file)
+            try:
+                await self._merge_file_to_mp4(video_file, audio_file, output_file)
+            except Exception as merge_err:
+                logger.warning(f"合并视频音频失败，回退为仅视频：{merge_err}")
+                shutil.copy(video_file, output_file)
             # 检查输出文件是否存在
             if not os.path.exists(output_file):
                 logger.error(f"合并失败，输出文件不存在：{output_file}")

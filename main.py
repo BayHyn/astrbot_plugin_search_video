@@ -19,7 +19,7 @@ os.makedirs(TEMP_DIR, exist_ok=True)
     "astrbot_plugin_search_video",
     "Zhalslar",
     "视频搜索",
-    "1.0.4",
+    "v1.0.5",
     "https://github.com/Zhalslar/astrbot_plugin_search_video",
 )
 class VideoPlugin(Star):
