@@ -86,6 +86,8 @@ class VideoPlugin(Star):
 
             # 验证输入序号
             elif not input.isdigit() or int(input) < 1 or int(input) > len(videos[-1]):
+                await event.send(event.plain_result("已退出视频搜索！"))
+                controller.stop()
                 return
 
             # 先停止会话，防止下载视频时出现“再次输入”
